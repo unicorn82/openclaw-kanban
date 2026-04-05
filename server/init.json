@@ -1,0 +1,9 @@
+{
+  "columns": [
+    { "name": "Idea", "order": 0, "default_agent_id": null },
+    { "name": "Design", "order": 1, "default_agent_id": null },
+    { "name": "Development", "order": 2, "default_agent_id": null },
+    { "name": "QA", "order": 3, "default_agent_id": null },
+    { "name": "Done", "order": 4, "default_agent_id": null }
+  ]
+}

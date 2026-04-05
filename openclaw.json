@@ -1,0 +1,271 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.13",
+    "lastTouchedAt": "2026-03-25T05:27:43.212Z"
+  },
+  "env": {
+    "vars": {
+      "TAVILY_API_KEY": "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"
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-03-15T17:54:29.356Z",
+    "lastRunVersion": "2026.3.13",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
+  },
+  "auth": {
+    "profiles": {
+      "openai-codex:default": {
+        "provider": "openai-codex",
+        "mode": "oauth"
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openai-codex/gpt-5.2"
+      },
+      "workspace": "/Users/eyin/.openclaw/workspace",
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "verboseDefault": "full",
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
+      }
+    },
+    "list": [
+      {
+        "id": "main"
+      },
+      {
+        "id": "performance",
+        "name": "performance",
+        "workspace": "/Users/eyin/.openclaw/workspace-performance",
+        "agentDir": "/Users/eyin/.openclaw/agents/performance/agent"
+      },
+      {
+        "id": "sales-agent",
+        "name": "sales.agent",
+        "workspace": "/Users/eyin/.openclaw/workspace-sales-agent",
+        "agentDir": "/Users/eyin/.openclaw/agents/sales-agent/agent",
+        "model": "openai-codex/gpt-5.3-codex"
+      },
+      {
+        "id": "ios-developer-agents",
+        "name": "ios-developer.agents",
+        "workspace": "/Users/eyin/.openclaw/workspace-ios-developer-agents",
+        "agentDir": "/Users/eyin/.openclaw/agents/ios-developer-agents/agent",
+        "model": "openai-codex/gpt-5.3-codex"
+      }
+    ]
+  },
+  "tools": {
+    "profile": "full",
+    "media": {
+      "image": {
+        "enabled": true,
+        "scope": {
+          "default": "allow"
+        },
+        "maxBytes": 10485760,
+        "attachments": {
+          "mode": "all",
+          "maxAttachments": 8,
+          "prefer": "last"
+        }
+      }
+    },
+    "sessions": {
+      "visibility": "all"
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "webchat"
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "telegram",
+        "peer": {
+          "kind": "group",
+          "id": "telegram:-5253821825"
+        }
+      }
+    },
+    {
+      "agentId": "sales-agent",
+      "match": {
+        "channel": "telegram",
+        "accountId": "sales"
+      }
+    },
+    {
+      "agentId": "ios-developer-agents",
+      "match": {
+        "channel": "telegram",
+        "accountId": "ios"
+      }
+    }
+  ],
+  "messages": {
+    "ackReactionScope": "group-mentions"
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "main",
+    "identityLinks": {
+      "me": [
+        "telegram:8546650261",
+        "session:2fd8b5ef-088f-4826-9087-aaa6fe8d4856"
+      ]
+    }
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "boot-md": {
+          "enabled": true
+        },
+        "command-logger": {
+          "enabled": true
+        },
+        "session-memory": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "groupAllowFrom": [
+        "8546650261"
+      ],
+      "groupPolicy": "allowlist",
+      "streaming": "partial",
+      "accounts": {
+        "sales": {
+          "enabled": true,
+          "dmPolicy": "pairing",
+          "tokenFile": "/Users/eyin/.openclaw/secrets/telegram-sales.bot-token",
+          "allowFrom": [
+            "8546650261"
+          ],
+          "groupAllowFrom": [
+            "8546650261"
+          ],
+          "groupPolicy": "allowlist",
+          "streaming": "partial"
+        },
+        "ios": {
+          "enabled": true,
+          "dmPolicy": "pairing",
+          "tokenFile": "/Users/eyin/.openclaw/secrets/telegram-ios.bot-token",
+          "allowFrom": [
+            "8546650261"
+          ],
+          "groupAllowFrom": [
+            "8546650261"
+          ],
+          "groupPolicy": "allowlist",
+          "streaming": "partial"
+        },
+        "default": {
+          "dmPolicy": "pairing",
+          "botToken": "8442972058:AAFKjvFVzVIjJSceVlFfMrMYi3EWzK6DoSw",
+          "allowFrom": [
+            "8546650261"
+          ],
+          "groupAllowFrom": [
+            "8546650261"
+          ],
+          "groupPolicy": "allowlist",
+          "streaming": "partial"
+        }
+      }
+    },
+    "imessage": {
+      "enabled": true,
+      "cliPath": "imsg",
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist",
+      "blockStreaming": false
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "allowedOrigins": [
+        "https://10.0.0.17:18789",
+        "http://10.0.0.17:18789",
+        "http://localhost:18789",
+        "http://127.0.0.1:18789"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "905e7ab442f365b6fda193f6db1fc64930fd201211bcc0ae"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "tls": {
+      "enabled": true,
+      "autoGenerate": true
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "skills": {
+    "load": {
+      "extraDirs": [
+        "/Users/eyin/.openclaw/workspace-sales-agent/skills"
+      ]
+    },
+    "install": {
+      "nodeManager": "npm"
+    }
+  },
+  "plugins": {
+    "slots": {
+      "memory": "memory-core"
+    },
+    "entries": {
+      "imessage": {
+        "enabled": true
+      },
+      "telegram": {
+        "enabled": true
+      },
+      "memory-core": {
+        "enabled": false
+      },
+      "memory-lancedb": {
+        "enabled": false
+      }
+    }
+  }
+}

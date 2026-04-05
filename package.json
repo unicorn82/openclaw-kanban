@@ -1,0 +1,14 @@
+{
+  "name": "openclaw-kanban",
+  "version": "1.0.0",
+  "description": "Premium Kanban Board with MCP Server",
+  "scripts": {
+    "server": "cd server && python3 -m uvicorn main:app --reload --port 8000",
+    "client": "cd client && npm run dev",
+    "start": "npx -y concurrently \"npm run server\" \"npm run client\"",
+    "install-all": "cd server && pip install -r requirements.txt && cd ../client && npm install"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

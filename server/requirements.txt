@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+mcp[cli]
+python-dotenv
+pytest
+httpx
+# Or if you want to use fastmcp for easier tool definition
+fastmcp
+python-multipart
