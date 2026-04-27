@@ -1,14 +1,23 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime
+
+class SubTask(BaseModel):
+    title: str
+    description: str
+    instruction: str
+    definition_of_done: str
+    whats_next: str
+    agent_id: Optional[str] = None
+    review_required: bool = False
+    status: Literal['open', 'pending', 'closed'] = 'pending'
 
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
     column_id: int
-    agent_id: Optional[str] = None
     expected_result: Optional[str] = None
-    steps: Optional[List[str]] = []
+    subtasks: Optional[List[SubTask]] = []
     workflow_ids: Optional[List[int]] = None
     order: Optional[int] = 0
 
@@ -19,9 +28,8 @@ class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     column_id: Optional[int] = None
-    agent_id: Optional[str] = None
     expected_result: Optional[str] = None
-    steps: Optional[List[str]] = None
+    subtasks: Optional[List[SubTask]] = None
     workflow_ids: Optional[List[int]] = None
     order: Optional[int] = None
 

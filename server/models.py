@@ -20,9 +20,8 @@ class TaskModel(Base):
     title = Column(String, index=True)
     description = Column(String, nullable=True)
     column_id = Column(Integer, ForeignKey("columns.id"))
-    agent_id = Column(String, nullable=True)  # Associated agent from openclaw.json
     expected_result = Column(String, nullable=True)
-    steps = Column(JSON, nullable=True)  # List of strings/objects for task steps
+    subtasks = Column(JSON, nullable=True)  # List of objects representing subtasks
     workflow_ids = Column(JSON, nullable=True)  # List of column IDs that this task needs to visit
     order = Column(Integer)  # Position within column
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

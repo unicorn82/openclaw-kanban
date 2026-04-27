@@ -250,6 +250,15 @@ body {
   background: var(--primary-hover);
 }
 
+.btn-success {
+  background: var(--success);
+  color: white;
+}
+
+.btn-success:hover {
+  filter: brightness(1.1);
+}
+
 .btn-icon {
   background: transparent;
   color: var(--text-muted);
@@ -413,4 +422,129 @@ body {
     background-color: var(--primary);
     transform: scale(1.2);
     box-shadow: 0 0 10px var(--primary);
+}
+
+.status-badge {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    display: inline-block;
+}
+
+.status-badge.open {
+    background: var(--primary);
+    color: white;
+}
+
+.status-badge.pending {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+}
+
+.status-badge.closed {
+    background: var(--success);
+    color: white;
+}
+
+.status-select {
+    font-size: 0.65rem;
+    padding: 2px 20px 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    border: none;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    transition: all 0.2s;
+}
+
+.status-select.open {
+    background-color: var(--primary);
+    color: white;
+}
+
+.status-select.pending {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='rgba(148, 163, 184, 1)' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.status-select.closed {
+    background-color: var(--success);
+    color: white;
+}
+
+.status-select:hover {
+    filter: brightness(1.1);
+}
+
+.status-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+}
+
+/* Custom Premium Checkbox */
+input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: rgba(255, 255, 255, 0.05);
+    margin: 0;
+    font: inherit;
+    color: var(--primary);
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    outline: none;
+}
+
+input[type="checkbox"]::before {
+    content: "";
+    width: 12px;
+    height: 12px;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    background-color: white;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="checkbox"]:checked {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+input[type="checkbox"]:hover {
+    border-color: var(--primary);
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+input[type="checkbox"]:focus-visible {
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5);
+}
+
+/* Specific styling for the subtask status box on card */
+.subtask-status-box {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.subtask-status-box:hover {
+    transform: scale(1.1);
+    filter: brightness(1.1);
 }

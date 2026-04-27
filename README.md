@@ -2,17 +2,11 @@
 
 A modern, high-performance Kanban system integrated with an MCP server for AI agent automation.
 
-## Features
-- **Modern UI**: React v18+ with Framer Motion animations and Glassmorphic aesthetics.
-- **Drag & Drop**: Powered by `@dnd-kit/core` for smooth task management.
-- **FastAPI Backend**: Robust Python server with SQLite for persistent storage.
-- **Easy Initialization**: Uses `server/init.json` to automatically set up columns on the first run.
-- **MCP Enabled**: Full support for Model Context Protocol, allowing any AI agent to manage your tasks.
-- **Node.js v22 Ready**: Fully compatible with the latest environments.
 
 ## Directory Structure
 - `server/`: Python FastAPI application & MCP server.
 - `client/`: React/TypeScript frontend.
+- `skills/openclaw-kanban-agent/`: Project-specific agent protocol (SKILL.md) and environment.
 
 ## Getting Started
 
@@ -21,50 +15,58 @@ A modern, high-performance Kanban system integrated with an MCP server for AI ag
 - Node.js v22+
 - `pip` & `npm`
 
-### 1. One-Step Installation
+#### a. Install Dependencies
 From the root directory, run:
 ```bash
 npm run install-all
 ```
 
-### 2. Unified Launch
-Launch both the backend and frontend with a single command:
+#### b. Setup Environment Variables
+Copy the sample environment file and configure your local paths:
 ```bash
-npm start
+cp server/.env.sample server/.env
+# Edit server/.env with your absolute paths
 ```
-Alternatively, you can use the provided shell script:
+
+### 2. Unified Launch
+Launch the backend, frontend, and MCP server with a single command:
 ```bash
 ./start.sh
 ```
-The board will be available at [http://localhost:5173](http://localhost:5173).
+The board will be available at [http://localhost:5173](http://localhost:5173) (or the network IP shown in the logs).
 
-**Run the MCP Server (Stdio):**
+To stop all services:
 ```bash
-cd server
-# If using FastMCP
-python mcp_server.py
+./shutdown.sh
 ```
 
-## MCP Configuration
-To use this with an agent (like Claude or OpenClaw), add this to your `mcp_servers` configuration:
+## MCP Configuration (For Agents)
+
+To give an AI agent (like Claude or OpenClaw) control over the board, add the following to your `openclaw.json` or MCP configuration. **Note: Use absolute paths.**
 
 ```json
-{
-  "mcpServers": {
+"mcp": {
+  "servers": {
     "kanban": {
       "command": "python3",
-      "args": ["/Users/easonyin/Project/Adless/openclaw-kanban/server/mcp_server.py"],
+      "args": [
+        "/absolute/path/to/server/mcp_server.py"
+      ],
       "env": {
-        "PYTHONPATH": "/Users/easonyin/Project/Adless/openclaw-kanban"
+        "PYTHONPATH": "/absolute/path/to/server",
+        "DATABASE_URL": "sqlite://///absolute/path/to/server/kanban.db",
+        "WORKSPACE_ROOT": "/absolute/path/to/workspace",
+        "OPENCLAW_CONFIG_PATH": "/absolute/path/to/openclaw.json"
       }
     }
   }
 }
 ```
 
-## Tools Provided to Agents
-- `list_tasks`: Retrieves all columns and tasks.
-- `add_task`: Adds a new task to a specific column.
-- `move_task`: Moves a task between columns (e.g., from "To Do" to "In Progress").
-- `update_task_details`: Updates the task title/description.
-- `delete_task`: Removes a task from the board.
+## Unified Terminology
+The system uses a **Project > Task** hierarchy:
+- **Project**: A high-level goal (e.g., "Build Auth System").
+- **Task**: An individual step within a project (e.g., "Setup JWT").
+
+## Agent Protocol
+Agents assigned to projects MUST follow the protocol defined in `skills/openclaw-kanban-agent/SKILL.md`. This protocol enforces high-agency behavior, mandatory memory synchronization, and clear stage transitions.

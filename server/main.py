@@ -33,45 +33,77 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize default columns if missing
+# Initialize columns from openclaw.json
 @app.on_event("startup")
 def startup_db():
     db = database.SessionLocal()
     try:
-        if db.query(models.ColumnModel).count() == 0:
-            print("Empty database detected. Initializing columns...")
-            init_path = os.path.join(os.path.dirname(__file__), "init.json")
-            if os.path.exists(init_path):
-                try:
-                    with open(init_path, 'r') as f:
-                        config = json.load(f)
-                        for col_data in config.get("columns", []):
-                            name = col_data if isinstance(col_data, str) else col_data.get("name")
-                            order = 0 if isinstance(col_data, str) else col_data.get("order", 0)
-                            agent = None if isinstance(col_data, str) else col_data.get("default_agent_id")
-                            
-                            # Use merge or check to be safe
-                            existing = db.query(models.ColumnModel).filter(models.ColumnModel.name == name).first()
-                            if not existing:
-                                db.add(models.ColumnModel(name=name, order=order, default_agent_id=agent))
-                    db.commit()
-                except Exception as e:
-                    print(f"Error loading init.json: {e}")
-                    db.rollback()
-                    # Fallback
-                    default_cols = ["Idea", "Design", "Development", "QA", "Done"]
-                    for idx, name in enumerate(default_cols):
-                        if not db.query(models.ColumnModel).filter(models.ColumnModel.name == name).first():
-                            db.add(models.ColumnModel(name=name, order=idx))
-                    db.commit()
-            else:
+        if not CONFIG_PATH or not os.path.exists(CONFIG_PATH):
+            print(f"Warning: OPENCLAW_CONFIG_PATH ({CONFIG_PATH}) not found. Skipping agent sync.")
+            # Fallback to default columns if db is empty
+            if db.query(models.ColumnModel).count() == 0:
                 default_cols = ["Idea", "Design", "Development", "QA", "Done"]
                 for idx, name in enumerate(default_cols):
-                    if not db.query(models.ColumnModel).filter(models.ColumnModel.name == name).first():
-                        db.add(models.ColumnModel(name=name, order=idx))
+                    db.add(models.ColumnModel(name=name, order=idx))
                 db.commit()
+            return
+
+        with open(CONFIG_PATH, 'r') as f:
+            config = json.load(f)
+            agents = config.get("agents", {}).get("list", [])
+            
+            # Map agents to desired column states
+            agent_ids = []
+            next_order = 0
+            for agent_data in agents:
+                agent_id = agent_data.get("id")
+                agent_name = agent_data.get("name") or agent_id
+                agent_ids.append(agent_id)
+                
+                db_col = db.query(models.ColumnModel).filter(models.ColumnModel.default_agent_id == agent_id).first()
+                if not db_col:
+                    print(f"Adding new column for agent: {agent_name}")
+                    db_col = models.ColumnModel(
+                        name=agent_name, 
+                        default_agent_id=agent_id, 
+                        order=next_order
+                    )
+                    db.add(db_col)
+                else:
+                    db_col.name = agent_name
+                    db_col.order = next_order
+                next_order += 1
+            
+            # Ensure "Done" column exists at the end
+            done_col = db.query(models.ColumnModel).filter(models.ColumnModel.name == "Done").first()
+            if not done_col:
+                print("Adding archived 'Done' column")
+                done_col = models.ColumnModel(name="Done", order=next_order)
+                db.add(done_col)
+            else:
+                done_col.order = next_order
+            
+            # Identify columns to delete (not an agent column AND not "Done")
+            all_cols = db.query(models.ColumnModel).all()
+            for col in all_cols:
+                is_agent_col = col.default_agent_id and col.default_agent_id in agent_ids
+                is_done_col = col.name == "Done"
+                
+                if not is_agent_col and not is_done_col:
+                    print(f"Removing unused column: {col.name}")
+                    # Move any orphaned tasks to the "Done" column or first agent
+                    target_move_col = done_col or db.query(models.ColumnModel).first()
+                    if target_move_col and col.id != target_move_col.id:
+                        tasks_to_move = db.query(models.TaskModel).filter(models.TaskModel.column_id == col.id).all()
+                        for task in tasks_to_move:
+                            task.column_id = target_move_col.id
+                    db.delete(col)
+            
+            db.commit()
+            print("Successfully synchronized columns (Agents + Done).")
+
     except Exception as e:
-        print(f"Database initialization error: {e}")
+        print(f"Agent synchronization error: {e}")
         db.rollback()
     finally:
         db.close()
@@ -136,17 +168,37 @@ def get_tasks(db: Session = Depends(get_db)):
 def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
     db_task = models.TaskModel(**task.dict())
     
-    # Apply default agent for the initial column
-    col = db.query(models.ColumnModel).filter(models.ColumnModel.id == task.column_id).first()
-    if col and col.default_agent_id:
-        db_task.agent_id = col.default_agent_id
+    # Initialize subtask statuses
+    if db_task.subtasks:
+        updated_subs = []
+        for idx, sub in enumerate(db_task.subtasks):
+            # Ensure sub is a dict if it happens to be a Pydantic model
+            if hasattr(sub, "dict"):
+                sub_dict = sub.dict()
+            elif hasattr(sub, "model_dump"):
+                sub_dict = sub.model_dump()
+            else:
+                sub_dict = dict(sub)
+                
+            sub_dict['status'] = 'open' if idx == 0 else 'pending'
+            updated_subs.append(sub_dict)
+        db_task.subtasks = updated_subs
+        
+        # Auto-move based on first open subtask
+        if len(db_task.subtasks) > 0:
+            open_sub = db_task.subtasks[0]
+            agent_id = open_sub.get('agent_id')
+            if agent_id:
+                target_col = db.query(models.ColumnModel).filter(models.ColumnModel.default_agent_id == agent_id).first()
+                if target_col:
+                    db_task.column_id = target_col.id
 
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
     
     # Create associated folder and sync memory
-    utils.sync_task_memory(db, db_task.id, WORKSPACE_ROOT)
+    utils.sync_task_memory(db, db_task.id, WORKSPACE_ROOT, CONFIG_PATH)
         
     return db_task
 
@@ -160,17 +212,44 @@ def update_task(task_id: int, task_update: schemas.TaskUpdate, db: Session = Dep
     for key, value in update_data.items():
         setattr(db_task, key, value)
     
-    # If column was changed, update agent automatically based on column's default
-    if "column_id" in update_data:
-        col = db.query(models.ColumnModel).filter(models.ColumnModel.id == db_task.column_id).first()
-        if col and col.default_agent_id:
-            db_task.agent_id = col.default_agent_id
+    # Auto-move and Enforce Single-Open Invariant
+    if db_task.subtasks:
+        # Standardize subtasks to dicts
+        normalized_subs = []
+        for s in db_task.subtasks:
+            if hasattr(s, "model_dump"): normalized_subs.append(s.model_dump())
+            elif hasattr(s, "dict"): normalized_subs.append(s.dict())
+            else: normalized_subs.append(s if isinstance(s, dict) else dict(s))
+        
+        # Enforce: only one subtask can be "open"
+        # We find the first "open" subtask and set all others to "pending" (if not "closed")
+        found_open_idx = -1
+        for i, s in enumerate(normalized_subs):
+            if s.get('status') == 'open':
+                if found_open_idx == -1:
+                    found_open_idx = i
+                else:
+                    s['status'] = 'pending'
+        
+        db_task.subtasks = normalized_subs
+        
+        if found_open_idx != -1:
+            open_sub = normalized_subs[found_open_idx]
+            if open_sub.get('agent_id'):
+                target_col = db.query(models.ColumnModel).filter(models.ColumnModel.default_agent_id == open_sub.get('agent_id')).first()
+                if target_col:
+                    db_task.column_id = target_col.id
+        elif all(s.get('status') == 'closed' for s in normalized_subs):
+            # All closed? Move to Done if exists
+            done_col = db.query(models.ColumnModel).filter(models.ColumnModel.name == 'Done').first()
+            if done_col:
+                db_task.column_id = done_col.id
             
     db.commit()
     db.refresh(db_task)
     
     # Sync memory on update
-    utils.sync_task_memory(db, db_task.id, WORKSPACE_ROOT)
+    utils.sync_task_memory(db, db_task.id, WORKSPACE_ROOT, CONFIG_PATH)
     
     return db_task
 
@@ -179,6 +258,10 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
     db_task = db.query(models.TaskModel).filter(models.TaskModel.id == task_id).first()
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Delete workspace folder
+    utils.delete_task_folder(WORKSPACE_ROOT, db_task.id, db_task.title)
+    
     db.delete(db_task)
     db.commit()
     return {"detail": "Deleted"}
@@ -191,9 +274,7 @@ async def upload_attachment(task_id: int, file: UploadFile = File(...), db: Sess
         raise HTTPException(status_code=404, detail="Task not found")
         
     # Get task folder
-    safe_title = "".join([c for c in db_task.title if c.isalnum() or c in (' ', '-', '_')]).rstrip()
-    folder_name = f"{db_task.id}_{safe_title}"
-    folder_path = Path(WORKSPACE_ROOT) / folder_name
+    folder_path = utils.get_task_folder_path(WORKSPACE_ROOT, db_task.id, db_task.title)
     
     # Ensure it exists (if somehow deleted)
     os.makedirs(folder_path, exist_ok=True)
@@ -211,15 +292,59 @@ def list_attachments(task_id: int, db: Session = Depends(get_db)):
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
         
-    safe_title = "".join([c for c in db_task.title if c.isalnum() or c in (' ', '-', '_')]).rstrip()
-    folder_name = f"{db_task.id}_{safe_title}"
-    folder_path = Path(WORKSPACE_ROOT) / folder_name
+    folder_path = utils.get_task_folder_path(WORKSPACE_ROOT, db_task.id, db_task.title)
     
     if not os.path.exists(folder_path):
         return []
     
     files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
     return files
+
+@app.post("/tasks/{task_id}/subtasks/{subtask_index}/close", response_model=schemas.Task)
+def close_subtask(task_id: int, subtask_index: int, db: Session = Depends(get_db)):
+    db_task = db.query(models.TaskModel).filter(models.TaskModel.id == task_id).first()
+    if not db_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if not db_task.subtasks or subtask_index < 0 or subtask_index >= len(db_task.subtasks):
+        raise HTTPException(status_code=404, detail="Subtask index out of range")
+        
+    # Standardize and update subtasks with single-open invariant
+    updated_subs = []
+    next_to_open_idx = subtask_index + 1
+    for idx, sub in enumerate(db_task.subtasks):
+        if hasattr(sub, "model_dump"): s_dict = sub.model_dump()
+        elif hasattr(sub, "dict"): s_dict = sub.dict()
+        else: s_dict = dict(sub)
+        
+        if idx == subtask_index:
+            s_dict['status'] = 'closed'
+        elif idx == next_to_open_idx:
+            s_dict['status'] = 'open'
+        elif s_dict.get('status') == 'open':
+            # Ensure no other subtask stays open
+            s_dict['status'] = 'pending'
+            
+        updated_subs.append(s_dict)
+        
+    db_task.subtasks = updated_subs
+    
+    # Auto-move logic
+    next_open = next((s for s in updated_subs if s.get('status') == 'open'), None)
+    if next_open and next_open.get('agent_id'):
+        target_col = db.query(models.ColumnModel).filter(models.ColumnModel.default_agent_id == next_open.get('agent_id')).first()
+        if target_col:
+            db_task.column_id = target_col.id
+    elif all(s.get('status') == 'closed' for s in updated_subs):
+        # All closed? Move to Done
+        done_col = db.query(models.ColumnModel).filter(models.ColumnModel.name == 'Done').first()
+        if done_col:
+            db_task.column_id = done_col.id
+            
+    db.commit()
+    db.refresh(db_task)
+    utils.sync_task_memory(db, db_task.id, WORKSPACE_ROOT, CONFIG_PATH)
+    return db_task
 
 @app.post("/tasks/reorder")
 def reorder_tasks(task_ids: List[int], column_id: int, db: Session = Depends(get_db)):
@@ -236,6 +361,47 @@ def reorder_tasks(task_ids: List[int], column_id: int, db: Session = Depends(get
             utils.sync_task_memory(db, tid, WORKSPACE_ROOT)
     db.commit()
     return {"detail": "Reordered"}
+
+@app.post("/tasks/{task_id}/subtasks/{subtask_index}/reopen", response_model=schemas.Task)
+def reopen_subtask(task_id: int, subtask_index: int, db: Session = Depends(get_db)):
+    db_task = db.query(models.TaskModel).filter(models.TaskModel.id == task_id).first()
+    if not db_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if not db_task.subtasks or subtask_index < 0 or subtask_index >= len(db_task.subtasks):
+        raise HTTPException(status_code=404, detail="Subtask index out of range")
+        
+    # Standardize and update subtasks with single-open invariant
+    updated_subs = []
+    for idx, sub in enumerate(db_task.subtasks):
+        if hasattr(sub, "model_dump"): s_dict = sub.model_dump()
+        elif hasattr(sub, "dict"): s_dict = sub.dict()
+        else: s_dict = dict(sub)
+            
+        if idx == subtask_index:
+            s_dict['status'] = 'open'
+        elif s_dict.get('status') == 'open':
+            # Move previously open subtasks to pending
+            s_dict['status'] = 'pending'
+            
+        updated_subs.append(s_dict)
+        
+    db_task.subtasks = updated_subs
+    
+    # Auto-move based on newly opened subtask
+    open_sub = updated_subs[subtask_index]
+    if open_sub.get('agent_id'):
+        target_col = db.query(models.ColumnModel).filter(models.ColumnModel.default_agent_id == open_sub.get('agent_id')).first()
+        if target_col:
+            db_task.column_id = target_col.id
+            
+    db.commit()
+    db.refresh(db_task)
+    
+    # Sync memory/files
+    utils.sync_task_memory(db, db_task.id, WORKSPACE_ROOT, CONFIG_PATH)
+    
+    return db_task
 
 @app.post("/tasks/{task_id}/append_memory")
 def append_task_memory_endpoint(task_id: int, content: str, db: Session = Depends(get_db)):

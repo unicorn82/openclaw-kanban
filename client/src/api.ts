@@ -1,20 +1,30 @@
 import axios from 'axios';
 
-// Change this to your backend server URL in production
-const API_URL = 'http://localhost:8000';
+// Use the current hostname so it works over LAN/Network
+const API_URL = `http://${window.location.hostname}:8000`;
 
 const api = axios.create({
   baseURL: API_URL,
 });
+
+export interface SubTask {
+  title: string;
+  description: string;
+  instruction: string;
+  definition_of_done: string;
+  whats_next: string;
+  agent_id?: string;
+  review_required?: boolean;
+  status: 'open' | 'pending' | 'closed';
+}
 
 export interface Task {
   id: number;
   title: string;
   description: string | null;
   column_id: number;
-  agent_id?: string;
   expected_result?: string;
-  steps?: string[];
+  subtasks?: SubTask[];
   workflow_ids?: number[];
   order: number;
   created_at: string;
@@ -57,5 +67,7 @@ export const uploadAttachment = (taskId: number, file: File) => {
 };
 
 export const getAttachments = (taskId: number) => api.get<string[]>(`/tasks/${taskId}/attachments`);
+export const closeSubtask = (taskId: number, subtaskIndex: number) => api.post<Task>(`/tasks/${taskId}/subtasks/${subtaskIndex}/close`);
+export const reopenSubtask = (taskId: number, subtaskIndex: number) => api.post<Task>(`/tasks/${taskId}/subtasks/${subtaskIndex}/reopen`);
 
 export default api;
